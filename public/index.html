@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AI幹事｜グループLINEの話を進めるBot</title>
-  <meta name="description" content="グループLINEで決まらない予定を、AIが要約・未決定整理・次アクション化します。" />
+  <meta name="description" content="グループLINEで決まらない予定を、AIが整理し、次に確認すべきことを問いかけます。" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -13,31 +13,86 @@
       <div class="logo">AI幹事</div>
       <a class="nav-link" href="#how">使い方</a>
     </nav>
+
     <section class="hero-body">
       <p class="badge">グループLINEの話が進まない問題を解決</p>
       <h1>「で、結局どうする？」を<br>AIが整理します。</h1>
-      <p class="lead">飲み会・旅行・サークル・ゼミの予定調整で、決まったこと、未決定事項、次に送る文案をLINE上で返します。</p>
+      <p class="lead">
+        飲み会・旅行・サークル・ゼミの予定調整で、決まったこと、未決定事項、
+        次に確認すべきことをLINE上で整理します。
+      </p>
+
       <div class="actions">
         <a class="button primary" href="{{ add_friend_url }}">LINEで友だち追加</a>
         <a class="button secondary" href="{{ recommend_url }}">友だちにおすすめ</a>
       </div>
+
       <p class="note">LINE ID：<strong>{{ line_id }}</strong></p>
     </section>
   </header>
 
   <main>
+    <section class="example">
+      <div class="example-inner">
+        <div class="example-text">
+          <p class="badge">会話例</p>
+          <h2>AI幹事は、グループ内でこう動きます。</h2>
+          <p>
+            雑談をそのまま要約するのではなく、予定を決めるために必要な情報だけを取捨選択して整理します。
+          </p>
+        </div>
+
+        <div class="chat-box">
+          <p><strong>Aさん</strong>：8月どこ行く？</p>
+          <p><strong>Bさん</strong>：小笠原いいね</p>
+          <p><strong>Cさん</strong>：星撮りたい</p>
+          <p><strong>Dさん</strong>：船の日程次第かも</p>
+          <p><strong>あなた</strong>：@AI幹事 今の話整理して</p>
+
+          <hr />
+
+          <p><strong>AI幹事</strong></p>
+
+          <p>
+            【決まっていること】<br>
+            ・小笠原が旅行先候補に挙がっている<br>
+            ・星撮影をしたい人がいる
+          </p>
+
+          <p>
+            【まだ決まっていないこと】<br>
+            ・参加可能日<br>
+            ・予算感<br>
+            ・小笠原にするかどうかの最終判断
+          </p>
+
+          <p>
+            【次に決めること】<br>
+            ・まずは参加可能日と予算感を確認する
+          </p>
+
+          <p>
+            【みんなに確認したいこと】<br>
+            ・8月前半〜中旬で参加できる日を教えてください<br>
+            ・予算はどのくらいを想定していますか？<br>
+            ・星撮影を重視したいですか？
+          </p>
+        </div>
+      </div>
+    </section>
+
     <section class="cards">
       <article>
-        <h2>まとめる</h2>
-        <p>「まとめ」と送るだけで、決まっていること・未決定事項・次アクションを整理。</p>
+        <h2>取捨選択して整理</h2>
+        <p>雑談や相づちは省き、予定を決めるために必要な情報だけを整理します。</p>
       </article>
       <article>
-        <h2>催促しやすくする</h2>
-        <p>未回答者を責めずに、自然に話を進める文案を作成。</p>
+        <h2>未決定事項を見える化</h2>
+        <p>日程、場所、予算、参加可否など、まだ決まっていない論点を明確にします。</p>
       </article>
       <article>
-        <h2>仮決定する</h2>
-        <p>候補が複数あるときに、会話ログから仮決定案を出します。</p>
+        <h2>みんなに問いかける</h2>
+        <p>文案を作るのではなく、AI幹事自身がグループ全員に確認事項を提示します。</p>
       </article>
     </section>
 
@@ -46,22 +101,23 @@
       <ol>
         <li><strong>LINEで友だち追加</strong><br>上のボタンからAI幹事を追加します。</li>
         <li><strong>グループLINEに招待</strong><br>LINEのグループで「メンバー招待」からAI幹事を選びます。</li>
-        <li><strong>「まとめ」と送る</strong><br>Botが参加してからの会話をもとに、整理して返します。</li>
+        <li><strong>@AI幹事 と呼ぶ</strong><br>整理してほしいタイミングで「@AI幹事 今の話整理して」と送ります。</li>
       </ol>
+
       <div class="command-box">
-        <p>使える言葉</p>
-        <code>まとめ</code><code>未決定</code><code>次</code><code>決める</code><code>ヘルプ</code>
+        <p>呼び出し例</p>
+        <code>@AI幹事 今の話整理して</code>
+        <code>@AI幹事 未決定事項を教えて</code>
+        <code>@AI幹事 次に決めることは？</code>
       </div>
     </section>
 
     <section class="privacy">
       <h2>プライバシーについて</h2>
-      <p>AI幹事は、Botが参加してから受け取った発言だけを整理します。グループで使う前に、メンバーに「AI Botが会話を整理する」ことを共有してください。</p>
-    </section>
-
-    <section id="setup-line-id" class="setup">
-      <h2>開発者向け：LINE ID未設定の場合</h2>
-      <p><code>.env</code> に <code>LINE_ID=@あなたの公式アカウントID</code> を入れると、このページのボタンがLINE公式アカウントへのリンクになります。</p>
+      <p>
+        AI幹事は、Botが参加してから受け取った発言だけを整理します。
+        グループで使う前に、メンバーに「AI Botが会話を整理する」ことを共有してください。
+      </p>
     </section>
   </main>
 
