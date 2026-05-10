@@ -15,7 +15,7 @@ load_dotenv()
 
 LINE_CHANNEL_SECRET = os.environ.get("LINE_CHANNEL_SECRET", "")
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
-LINE_ID = "xncbWTq"
+LINE_ID = "@641ylztu"
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4.1-mini")
 MAX_HISTORY = int(os.environ.get("MAX_HISTORY", "80"))
 
