@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI幹事｜グループLINEの話を進めるBot</title>
+  <meta name="description" content="グループLINEで決まらない予定を、AIが要約・未決定整理・次アクション化します。" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="hero">
+    <nav>
+      <div class="logo">AI幹事</div>
+      <a class="nav-link" href="#how">使い方</a>
+    </nav>
+    <section class="hero-body">
+      <p class="badge">グループLINEの話が進まない問題を解決</p>
+      <h1>「で、結局どうする？」を<br>AIが整理します。</h1>
+      <p class="lead">飲み会・旅行・サークル・ゼミの予定調整で、決まったこと、未決定事項、次に送る文案をLINE上で返します。</p>
+      <div class="actions">
+        <a class="button primary" href="{{ add_friend_url }}">LINEで友だち追加</a>
+        <a class="button secondary" href="{{ recommend_url }}">友だちにおすすめ</a>
+      </div>
+      <p class="note">LINE ID：<strong>{{ line_id }}</strong></p>
+    </section>
+  </header>
+
+  <main>
+    <section class="cards">
+      <article>
+        <h2>まとめる</h2>
+        <p>「まとめ」と送るだけで、決まっていること・未決定事項・次アクションを整理。</p>
+      </article>
+      <article>
+        <h2>催促しやすくする</h2>
+        <p>未回答者を責めずに、自然に話を進める文案を作成。</p>
+      </article>
+      <article>
+        <h2>仮決定する</h2>
+        <p>候補が複数あるときに、会話ログから仮決定案を出します。</p>
+      </article>
+    </section>
+
+    <section id="how" class="how">
+      <h2>使い方</h2>
+      <ol>
+        <li><strong>LINEで友だち追加</strong><br>上のボタンからAI幹事を追加します。</li>
+        <li><strong>グループLINEに招待</strong><br>LINEのグループで「メンバー招待」からAI幹事を選びます。</li>
+        <li><strong>「まとめ」と送る</strong><br>Botが参加してからの会話をもとに、整理して返します。</li>
+      </ol>
+      <div class="command-box">
+        <p>使える言葉</p>
+        <code>まとめ</code><code>未決定</code><code>次</code><code>決める</code><code>ヘルプ</code>
+      </div>
+    </section>
+
+    <section class="privacy">
+      <h2>プライバシーについて</h2>
+      <p>AI幹事は、Botが参加してから受け取った発言だけを整理します。グループで使う前に、メンバーに「AI Botが会話を整理する」ことを共有してください。</p>
+    </section>
+
+    <section id="setup-line-id" class="setup">
+      <h2>開発者向け：LINE ID未設定の場合</h2>
+      <p><code>.env</code> に <code>LINE_ID=@あなたの公式アカウントID</code> を入れると、このページのボタンがLINE公式アカウントへのリンクになります。</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>AI幹事 MVP</p>
+  </footer>
+</body>
+</html>
