@@ -25,7 +25,6 @@ if not LINE_CHANNEL_SECRET or not LINE_CHANNEL_ACCESS_TOKEN:
 client = OpenAI()
 app = Flask(__name__, static_folder="public", static_url_path="")
 
-# source_id -> deque of message records
 histories = defaultdict(lambda: deque(maxlen=MAX_HISTORY))
 
 
@@ -66,12 +65,12 @@ def is_command(text: str) -> bool:
 
 def help_text() -> str:
     return (
-        "AI幹事です。グループの話を整理します。\n\n"
+        "AI幹事です。グループの話を整理して、次に確認すべきことを問いかけます。\n\n"
         "使い方：\n"
-        "・『まとめ』：決まったこと/未決定/次アクションを整理\n"
+        "・『まとめ』：決まったこと/未決定/次に確認することを整理\n"
         "・『未決定』：決まっていない論点だけ整理\n"
-        "・『次』：そのまま送れる文案を作成\n"
-        "・『決める』：仮決定案を作成\n\n"
+        "・『次』：次に決めるべきことを提示\n"
+        "・『決める』：仮決定案と確認事項を提示\n\n"
         "※このBotが参加してからの発言だけを使います。\n"
         "※会話内容をAIに送るので、グループ内で同意を取ってから使ってください。"
     )
@@ -81,9 +80,10 @@ def make_prompt(command: str, messages: list[dict]) -> str:
     transcript = "\n".join(
         f"[{m['time']}] {m['user']}: {m['text']}" for m in messages[-60:]
     )
+
     return f"""
 あなたはグループLINEの会話を進める「AI幹事」です。
-目的は、参加者を責めずに、決まっていること・未決定事項・次の一手を短く整理することです。
+あなたの役割は、グループ内の会話を整理し、参加者全員に向けて次に確認すべきことを自然に問いかけることです。
 
 ユーザーの依頼/コマンド:
 {command}
@@ -94,10 +94,16 @@ def make_prompt(command: str, messages: list[dict]) -> str:
 出力ルール:
 - 日本語で返す
 - 300〜700字程度
-- 断定しすぎず、会話ログから分かることだけを書く
-- 未回答者を責めない
-- 最後に、そのまま送れる「次に送る文案」を1つ付ける
-- 形式は以下にする
+- 会話ログから分かることだけを書く
+- 断定しすぎない
+- 未回答者や特定の人を責めない
+- 「送る文案」は出さない
+- 最後は、グループ全員に向けた確認質問にする
+- 質問は3つ以内
+- 質問はYes/No、選択式、短く答えられる形にする
+- 公式LINE自身がグループ内で直接問いかける文章にする
+
+形式は必ず以下にする。
 
 【決まっていること】
 ...
@@ -105,11 +111,13 @@ def make_prompt(command: str, messages: list[dict]) -> str:
 【まだ決まっていないこと】
 ...
 
-【次にやること】
+【次に決めること】
 ...
 
-【送る文案】
-...
+【みんなに確認したいこと】
+・...
+・...
+・...
 """.strip()
 
 
@@ -128,13 +136,21 @@ def ai_summarize(command: str, messages: list[dict]) -> str:
 def landing_page():
     index_path = Path(app.static_folder) / "index.html"
     html = index_path.read_text(encoding="utf-8")
+
     add_friend_url = "#setup-line-id"
     recommend_url = "#setup-line-id"
+
     if LINE_ID:
         encoded = LINE_ID.replace("@", "%40")
         add_friend_url = f"https://line.me/R/ti/p/{encoded}"
         recommend_url = f"https://line.me/R/nv/recommendOA/{LINE_ID}"
-    return render_template_string(html, line_id=LINE_ID or "@your_line_id", add_friend_url=add_friend_url, recommend_url=recommend_url)
+
+    return render_template_string(
+        html,
+        line_id=LINE_ID or "@your_line_id",
+        add_friend_url=add_friend_url,
+        recommend_url=recommend_url,
+    )
 
 
 @app.get("/health")
@@ -146,19 +162,19 @@ def healthcheck():
 def callback():
     body = request.get_data()
     signature = request.headers.get("X-Line-Signature", "")
+
     if not verify_line_signature(body, signature):
         abort(403)
 
     payload = request.get_json(force=True)
+
     for event in payload.get("events", []):
         event_type = event.get("type")
 
-        # 友だち追加時の案内
         if event_type == "follow":
             reply_to_line(event["replyToken"], help_text())
             continue
 
-        # グループ参加時の案内
         if event_type in ["join", "memberJoined"]:
             if event.get("replyToken"):
                 reply_to_line(event["replyToken"], "招待ありがとうございます。\n\n" + help_text())
@@ -166,21 +182,32 @@ def callback():
 
         if event_type != "message":
             continue
+
         message = event.get("message", {})
         if message.get("type") != "text":
             continue
 
         text = message.get("text", "").strip()
         key = source_key(event)
+
         user_id = event.get("source", {}).get("userId", "unknown")
         ts = event.get("timestamp")
+
         if ts:
-            dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).astimezone(timezone(timedelta(hours=9)))
+            dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).astimezone(
+                timezone(timedelta(hours=9))
+            )
             time_str = dt.strftime("%m/%d %H:%M")
         else:
             time_str = "unknown"
 
-        histories[key].append({"time": time_str, "user": user_id[-6:], "text": text})
+        histories[key].append(
+            {
+                "time": time_str,
+                "user": user_id[-6:],
+                "text": text,
+            }
+        )
 
         if is_command(text):
             if text.lower() in ["help", "ヘルプ", "/ai help", "@ai help"]:
@@ -189,7 +216,12 @@ def callback():
                 try:
                     reply = ai_summarize(text, list(histories[key]))
                 except Exception as e:
-                    reply = f"整理に失敗しました。設定やAPIキーを確認してください。\nerror: {type(e).__name__}"
+                    print(f"AI summarize error: {type(e).__name__}: {e}")
+                    reply = (
+                        "すみません、今はうまく整理できませんでした。\n"
+                        "少し時間を空けて、もう一度『まとめ』と送ってください。"
+                    )
+
             reply_to_line(event["replyToken"], reply)
 
     return "OK"
