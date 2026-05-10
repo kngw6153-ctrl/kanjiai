@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
-from flask import Flask, abort, request, send_from_directory, render_template_string
+from flask import Flask, abort, request, render_template_string
 from openai import OpenAI
 
 load_dotenv()
@@ -29,7 +29,11 @@ histories = defaultdict(lambda: deque(maxlen=MAX_HISTORY))
 
 
 def verify_line_signature(body: bytes, signature: str) -> bool:
-    mac = hmac.new(LINE_CHANNEL_SECRET.encode("utf-8"), body, hashlib.sha256).digest()
+    mac = hmac.new(
+        LINE_CHANNEL_SECRET.encode("utf-8"),
+        body,
+        hashlib.sha256,
+    ).digest()
     expected = base64.b64encode(mac).decode("utf-8")
     return hmac.compare_digest(expected, signature or "")
 
@@ -41,7 +45,10 @@ def reply_to_line(reply_token: str, text: str) -> None:
         "Content-Type": "application/json",
     }
     text = text[:4500]
-    payload = {"replyToken": reply_token, "messages": [{"type": "text", "text": text}]}
+    payload = {
+        "replyToken": reply_token,
+        "messages": [{"type": "text", "text": text}],
+    }
     r = requests.post(url, headers=headers, json=payload, timeout=10)
     r.raise_for_status()
 
@@ -58,19 +65,17 @@ def source_key(event: dict) -> str:
 
 
 def is_command(text: str) -> bool:
-    t = text.strip().lower()
-    triggers = ["まとめ", "要約", "次", "未決定", "決める", "help", "ヘルプ", "todo", "todo整理"]
-    return t.startswith("/ai") or t.startswith("@ai") or any(k in t for k in triggers)
+    return "@AI幹事" in text
 
 
 def help_text() -> str:
     return (
         "AI幹事です。グループの話を整理して、次に確認すべきことを問いかけます。\n\n"
         "使い方：\n"
-        "・『まとめ』：決まったこと/未決定/次に確認することを整理\n"
-        "・『未決定』：決まっていない論点だけ整理\n"
-        "・『次』：次に決めるべきことを提示\n"
-        "・『決める』：仮決定案と確認事項を提示\n\n"
+        "・『@AI幹事 今の話をまとめて』\n"
+        "・『@AI幹事 未決定事項を整理して』\n"
+        "・『@AI幹事 次に決めることは？』\n\n"
+        "※『まとめ』だけでは反応しません。\n"
         "※このBotが参加してからの発言だけを使います。\n"
         "※会話内容をAIに送るので、グループ内で同意を取ってから使ってください。"
     )
@@ -83,7 +88,9 @@ def make_prompt(command: str, messages: list[dict]) -> str:
 
     return f"""
 あなたはグループLINEの会話を進める「AI幹事」です。
-あなたの役割は、グループ内の会話を整理し、参加者全員に向けて次に確認すべきことを自然に問いかけることです。
+
+あなたの役割は、会話全体をそのまま要約することではありません。
+会話ログの中から、意思決定に必要な情報だけを取捨選択し、グループ全員が次に何を決めればよいか分かるように整理してください。
 
 ユーザーの依頼/コマンド:
 {command}
@@ -91,19 +98,22 @@ def make_prompt(command: str, messages: list[dict]) -> str:
 会話ログ:
 {transcript}
 
-出力ルール:
+重要な方針:
 - 日本語で返す
 - 300〜700字程度
+- 雑談、冗談、相づち、脱線した話題は基本的に省く
 - 会話ログから分かることだけを書く
+- 決定に関係する情報を優先する
 - 断定しすぎない
-- 未回答者や特定の人を責めない
+- 参加者を責めない
+- 未回答者を名指しで責めない
 - 「送る文案」は出さない
 - 最後は、グループ全員に向けた確認質問にする
 - 質問は3つ以内
 - 質問はYes/No、選択式、短く答えられる形にする
 - 公式LINE自身がグループ内で直接問いかける文章にする
 
-形式は必ず以下にする。
+出力形式:
 
 【決まっていること】
 ...
@@ -122,12 +132,20 @@ def make_prompt(command: str, messages: list[dict]) -> str:
 
 
 def ai_summarize(command: str, messages: list[dict]) -> str:
-    if not messages:
-        return "まだ整理できる会話がありません。日程・場所・目的などが少し出てきたら、まとめられます。"
+    useful_messages = [
+        m for m in messages
+        if "@AI幹事" not in m["text"]
+    ]
+
+    if not useful_messages:
+        return (
+            "まだ整理できる会話がありません。\n"
+            "日程・場所・目的・候補などが少し出てきたら、@AI幹事 と呼んでください。"
+        )
 
     response = client.responses.create(
         model=OPENAI_MODEL,
-        input=make_prompt(command, messages),
+        input=make_prompt(command, useful_messages),
     )
     return response.output_text.strip()
 
@@ -135,19 +153,23 @@ def ai_summarize(command: str, messages: list[dict]) -> str:
 @app.get("/")
 def landing_page():
     index_path = Path(app.static_folder) / "index.html"
+
+    if not index_path.exists():
+        return (
+            "<h1>AI幹事</h1>"
+            "<p>グループLINEの話し合いを整理するAIです。</p>"
+            f"<p><a href='https://line.me/R/ti/p/%40641ylztu'>LINEで友だち追加</a></p>"
+        )
+
     html = index_path.read_text(encoding="utf-8")
 
-    add_friend_url = "#setup-line-id"
-    recommend_url = "#setup-line-id"
-
-    if LINE_ID:
-        encoded = LINE_ID.replace("@", "%40")
-        add_friend_url = f"https://line.me/R/ti/p/{encoded}"
-        recommend_url = f"https://line.me/R/nv/recommendOA/{LINE_ID}"
+    encoded = LINE_ID.replace("@", "%40")
+    add_friend_url = f"https://line.me/R/ti/p/{encoded}"
+    recommend_url = f"https://line.me/R/nv/recommendOA/{LINE_ID}"
 
     return render_template_string(
         html,
-        line_id=LINE_ID or "@your_line_id",
+        line_id=LINE_ID,
         add_friend_url=add_friend_url,
         recommend_url=recommend_url,
     )
@@ -177,7 +199,10 @@ def callback():
 
         if event_type in ["join", "memberJoined"]:
             if event.get("replyToken"):
-                reply_to_line(event["replyToken"], "招待ありがとうございます。\n\n" + help_text())
+                reply_to_line(
+                    event["replyToken"],
+                    "招待ありがとうございます。\n\n" + help_text(),
+                )
             continue
 
         if event_type != "message":
@@ -194,9 +219,10 @@ def callback():
         ts = event.get("timestamp")
 
         if ts:
-            dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).astimezone(
-                timezone(timedelta(hours=9))
-            )
+            dt = datetime.fromtimestamp(
+                ts / 1000,
+                tz=timezone.utc,
+            ).astimezone(timezone(timedelta(hours=9)))
             time_str = dt.strftime("%m/%d %H:%M")
         else:
             time_str = "unknown"
@@ -210,17 +236,14 @@ def callback():
         )
 
         if is_command(text):
-            if text.lower() in ["help", "ヘルプ", "/ai help", "@ai help"]:
-                reply = help_text()
-            else:
-                try:
-                    reply = ai_summarize(text, list(histories[key]))
-                except Exception as e:
-                    print(f"AI summarize error: {type(e).__name__}: {e}")
-                    reply = (
-                        "すみません、今はうまく整理できませんでした。\n"
-                        "少し時間を空けて、もう一度『まとめ』と送ってください。"
-                    )
+            try:
+                reply = ai_summarize(text, list(histories[key]))
+            except Exception as e:
+                print(f"AI summarize error: {type(e).__name__}: {e}")
+                reply = (
+                    "すみません、今はうまく整理できませんでした。\n"
+                    "少し時間を空けて、もう一度 @AI幹事 と呼んでください。"
+                )
 
             reply_to_line(event["replyToken"], reply)
 
